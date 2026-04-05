@@ -36,7 +36,7 @@ new class extends Component
 };
 ?>
 
-<div>
+<div class="w-full">
     <div class="flex flex-col gap-6">
 
         {{-- Header --}}
@@ -52,7 +52,7 @@ new class extends Component
         <div>
             <h2 class="text-lg font-semibold mb-3">Disponíveis</h2>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 @forelse ($availableProducts as $product)
                     <div class="bg-white dark:bg-zinc-900 rounded-xl shadow overflow-hidden flex flex-col max-w-sm w-full">
 
