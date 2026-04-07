@@ -95,6 +95,7 @@
                 @livewire('products.guest-products')
             </div>
         </div>
+        @include('partials.toast')
 
         @if (Route::has('login'))
             <div class="h-14.5 hidden lg:block"></div>

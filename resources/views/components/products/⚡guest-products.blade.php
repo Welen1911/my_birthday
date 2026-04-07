@@ -4,6 +4,7 @@ use Livewire\Component;
 use Livewire\Attributes\Validate;
 use App\Models\Product;
 use App\Models\ProductReservation;
+use Flux\Flux;
 
 new class extends Component
 {
@@ -14,20 +15,25 @@ new class extends Component
     public ?int $modalProductId = null;
     public $modalProduct = null;
 
-    // Edit state
-    public ?int $editingReservationId = null;
-
-    #[Validate('required|string|min:2')]
-    public string $editGuestName = '';
-
-    #[Validate('required|integer|min:1')]
-    public int $editQuantity = 1;
-
-    #[Validate('required|string|min:2')]
     public string $guestName = '';
 
-    #[Validate('required|integer|min:1')]
     public int $quantity = 1;
+
+    public function rules(): array
+    {
+        $remaining = 0;
+
+        if ($this->modalProductId) {
+            $product   = Product::with('reservations')->find($this->modalProductId);
+            $reserved  = $product?->reservations->sum('quantity') ?? 0;
+            $remaining = ($product?->stock ?? 0) - $reserved;
+        }
+
+        return [
+            'guestName' => 'required|string|min:2',
+            'quantity'  => "required|integer|min:1|max:{$remaining}",
+        ];
+    }
 
     public function mount()
     {
@@ -57,7 +63,10 @@ new class extends Component
     {
         $this->modalProductId = null;
         $this->modalProduct = null;
+        $this->guestName = '';
+        $this->quantity = 1;
         $this->cancelEdit();
+        $this->dispatch('close-reservations-modal');
     }
 
     public function refreshModal()
@@ -108,8 +117,13 @@ new class extends Component
         $this->guestName = '';
         $this->quantity = 1;
 
-        $this->refreshModal();
+        $this->closeModal(); // ← fecha e reseta tudo
         $this->loadProducts();
+
+        $this->dispatch('toast-success', [
+            'heading' => "Sua reserva foi confirmada!",
+            'message' => 'Presente reservado com sucesso! 🎁',
+        ]);
     }
 };
 ?>
@@ -146,6 +160,7 @@ new class extends Component
     <div
         x-data="{ open: false }"
         x-on:open-reservations-modal.window="open = true"
+        x-on:close-reservations-modal.window="open = false"
         x-show="open"
         x-cloak
         class="fixed inset-0 z-50 flex items-center justify-center"
@@ -234,6 +249,7 @@ new class extends Component
                         <x-input
                             type="number"
                             min="1"
+                            max="{{ $remaining }}"
                             wire:model="quantity"
                             class="w-full mt-1 rounded-lg border-gray-300 dark:border-zinc-700 dark:bg-zinc-800 focus:ring-2 focus:ring-primary-500"
                         />
