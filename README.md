@@ -44,6 +44,13 @@ php artisan key:generate
 ```bash
 php artisan migrate
 ```
+### 5. Criar usuário Admin
+no arquivo .env , adicione o email e a senha do usuário admin, adicione também a chave pix (qualquer texto servirá)
+<img width="300" height="81" alt="image" src="https://github.com/user-attachments/assets/68a605e4-f60c-4646-89e4-a8dbd63d962b" />
+Logo após rode a Seeder para criar o usuário no banco de dados:
+```bash
+php artisan db:seed --class=CreateAdminSeeder
+```
 ### 5.Rodar o projeto
 ```bash
 php artisan serve
