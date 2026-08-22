@@ -41,12 +41,36 @@ new class extends Component
 
     public function toggleAvailability($id)
     {
-        $product = Product::findOrFail($id);
+        // Aqui buscamos o produto no banco de dados e já trazemos as reservas dele
+        $product = Product::with('reservations')->findOrFail($id);
+
+        // Se o produto está indisponível (false) e o administrador quer disponibilizar:
+        if ($product->is_available === false) {
+            
+            // O sum() faz o trabalho de um laço for, somando a coluna 'quantity' de todas as reservas
+            $reserved = $product->reservations->sum('quantity');
+            
+            // A matemática básica: subtraímos o que já foi reservado do estoque total
+            $remaining = $product->stock - $reserved;
+
+            // Se o restante for zero ou negativo, bloqueamos a ação
+            if ($remaining <= 0) {
+                $this->dispatch('toast-error', [
+                    'heading' => 'Ação bloqueada',
+                    'message' => 'Você não pode disponibilizar um produto que já atingiu o limite de reservas.',
+                ]);
+                
+                return; // O return encerra a função aqui, como no C++
+            }
+        }
+
+        // Se passou pela validação (ou se já estava disponível e ele quer indisponibilizar),
+        // inverte o status de true para false ou vice-versa
         $product->is_available = !$product->is_available;
         $product->save();
+        
         $this->loadProducts();
 
-        // Atualiza o modal se estiver aberto para esse produto
         if ($this->modalProductId === $product->id) {
             $this->refreshModal();
         }
@@ -91,19 +115,38 @@ new class extends Component
         $this->resetValidation();
     }
 
-    public function updateReservation()
+    public function updateReservation() // (Se o nome da função no seu arquivo for diferente, mantenha o nome original!)
     {
-        $this->validate([
-            'editGuestName' => 'required|string|min:2',
-            'editQuantity'  => 'required|integer|min:1',
-        ]);
-
+        // 1. Buscamos a reserva que está sendo editada no banco de dados
         $reservation = ProductReservation::findOrFail($this->editingReservationId);
+        
+        // 2. Buscamos o produto para acessar o limite de estoque dele
+        $product = $reservation->product;
+        
+        // 3. MATEMÁTICA: Somamos todas as reservas deste produto, EXCETO a que estamos editando agora.
+        // É como um laço "for" no C++ que pula o índice atual (usando o where 'id' != id atual).
+        $reservedByOthers = $product->reservations()->where('id', '!=', $reservation->id)->sum('quantity');
+        
+        // 4. Calculamos o que realmente sobra no estoque para essa edição
+        $remaining = $product->stock - $reservedByOthers;
+        
+        // 5. A TRAVA DE SEGURANÇA: A nova quantidade digitada cabe no estoque?
+        if ($this->editQuantity > $remaining) {
+            // Se for maior, mostramos um erro e encerramos a função com "return"
+            $this->dispatch('toast-error', [
+                'heading' => 'Estoque insuficiente',
+                'message' => "O limite foi atingido. Você só pode colocar no máximo {$remaining} itens para essa reserva.",
+            ]);
+            return;
+        }
+
+        // 6. Se passou pela trava, salvamos a nova quantidade no banco de dados
         $reservation->update([
             'guest_name' => $this->editGuestName,
             'quantity'   => $this->editQuantity,
         ]);
 
+        // Limpamos o formulário e recarregamos a tela
         $this->cancelEdit();
         $this->refreshModal();
         $this->loadProducts();
